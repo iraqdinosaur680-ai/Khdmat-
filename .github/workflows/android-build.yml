@@ -18,6 +18,13 @@ jobs:
       - name: Install Dependencies
         run: npm install
         
+      - name: Prepare Firebase Config
+        run: |
+          if [ ! -f "firebase-applet-config.json" ]; then
+            echo "firebase-applet-config.json not found, using example template for build..."
+            cp firebase-applet-config.example.json firebase-applet-config.json
+          fi
+
       - name: Build Web App
         run: npm run build
         
