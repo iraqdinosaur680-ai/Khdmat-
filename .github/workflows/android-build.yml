@@ -23,6 +23,10 @@ jobs:
         
       - name: Sync Capacitor
         run: |
+          if [ ! -f "android/build.gradle" ]; then
+            echo "Android platform not found or incomplete. Adding platform..."
+            npx cap add android || true
+          fi
           npx cap sync android
           
       - name: Set up JDK 21
