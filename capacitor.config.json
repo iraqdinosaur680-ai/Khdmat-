@@ -1,0 +1,40 @@
+{
+  "appId": "com.khdmat.app",
+  "appName": "KHDMAT",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": [
+        "google.com",
+        "phone"
+      ],
+      "google": {
+        "webClientId": "420174503383-kpc96ir8hn6h4s2p9g49tms30ej75a2j.apps.googleusercontent.com"
+      }
+    },
+    "GoogleAuth": {
+      "scopes": [
+        "profile",
+        "email"
+      ],
+      "serverClientId": "420174503383-kpc96ir8hn6h4s2p9g49tms30ej75a2j.apps.googleusercontent.com",
+      "forceCodeForRefreshToken": true
+    },
+    "SplashScreen": {
+      "launchShowDuration": 300,
+      "launchAutoHide": true,
+      "backgroundColor": "#03452E",
+      "showSpinner": false,
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP"
+    }
+  }
+}

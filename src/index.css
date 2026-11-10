@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #22c55e; /* green-500 */
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --color-primary: #22c55e;
+  }
+
+  .dark {
+    --color-primary: #22c55e; /* green-500, same as light mode */
+  }
+
+  body {
+    @apply transition-colors duration-300 bg-white text-gray-900 dark:bg-zinc-950 dark:text-zinc-100;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-gray-900 dark:text-white;
+  }
+
+  .custom-worker-pin-container {
+    background: transparent !important;
+    border: none !important;
+  }
+
+  @keyframes spin-slow {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .animate-spin-slow {
+    animation: spin-slow 8s linear infinite;
+  }
+}
+

@@ -1,0 +1,402 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Global Safety Net
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Diagnostic / Connection Test
+    // ===============================================================
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function getEmail() {
+      return isSignedIn() && 'email' in request.auth.token ? request.auth.token.email : null;
+    }
+
+    function getEmailVerified() {
+      return request.auth.token.get('email_verified', false);
+    }
+
+    function isVerified() {
+      return isSignedIn() && (
+        getEmailVerified() == true ||
+        request.auth.token.get('phone_number', '') != '' ||
+        getEmail() == "07832715181@khdmat.app" // Special case for this specific user if they are verified manually
+      );
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.uid == "wfYy8kL8oJXomAIKxBC8afeILCU2" ||
+        request.auth.uid == "WAtDVKbShAauG0OOleCM8lt26V53" ||
+        request.auth.uid == "CCGkxiV5q9Onv7I6LhGwMCPGQa13" ||
+        request.auth.uid == "NIjclMkQ2FPmcdP46zvIrh9AAQ43" ||
+        (getEmail() != null && getEmail() in [
+          "iraqdinosaur680@gmail.com",
+          "tahatariq20069@gmail.com",
+          "mushtaqq.rh@gmail.com",
+          "kadmatiq@gmail.com",
+          "07832715181@khdmat.app"
+        ]) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin')
+      );
+    }
+    
+    // Admin check for list queries
+    function isAdminList() {
+      return isSignedIn() && (
+        request.auth.uid == "wfYy8kL8oJXomAIKxBC8afeILCU2" ||
+        request.auth.uid == "WAtDVKbShAauG0OOleCM8lt26V53" ||
+        request.auth.uid == "CCGkxiV5q9Onv7I6LhGwMCPGQa13" ||
+        request.auth.uid == "NIjclMkQ2FPmcdP46zvIrh9AAQ43" ||
+        (getEmail() != null && getEmail() in [
+          "iraqdinosaur680@gmail.com",
+          "tahatariq20069@gmail.com",
+          "mushtaqq.rh@gmail.com",
+          "kadmatiq@gmail.com",
+          "07832715181@khdmat.app"
+        ]) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin')
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isServerTimestamp(ts) {
+      return ts is timestamp || ts is number;
+    }
+
+    // ===============================================================
+    // Entity Validations
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'name', 'city', 'role', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.city is string &&
+             data.role in ['user', 'worker', 'admin'] &&
+             data.createdAt is number;
+    }
+
+    function isUserUpdateAllowed(uid) {
+      return isAdmin() || (
+        isSignedIn() && (
+          // Own account update
+          (request.auth.uid == uid && existing() != null && (
+            (isValidUser(incoming()) && incoming().get('role', 'user') == existing().get('role', 'user') && (incoming().get('uid', '') == existing().get('uid', ''))) ||
+            (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'city', 'photoURL', 'language', 'phone', 'fcmToken', 'password', 'updatedAt', 'phoneVerified', 'isReRegistered']))
+          )) ||
+          // Phone recovery update (if we're authenticated via phone and it matches the document)
+          (
+            request.auth.token.get('phone_number', '') != '' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['password', 'updatedAt']) &&
+            (
+              request.auth.token.phone_number.replace('[^0-9]', '').replace('^964', '').replace('^0', '') == 
+              existing().get('phone', '').replace('[^0-9]', '').replace('^964', '').replace('^0', '')
+            )
+          )
+        )
+      );
+    }
+
+    function isValidWorker(data) {
+      return data.keys().hasAll(['uid', 'email', 'profession', 'workingHours', 'hasTransport', 'rating', 'phone', 'location']) &&
+             data.uid is string &&
+             data.profession is string && data.profession.size() > 0 &&
+             data.workingHours is string &&
+             data.hasTransport is bool &&
+             data.rating is number &&
+             data.phone is string &&
+             data.location is map &&
+             data.location.lat is number && data.location.lng is number;
+    }
+
+    function isValidBooking(data) {
+      return data.keys().hasAll(['id', 'customerId', 'workerId', 'status', 'timestamp', 'category', 'city', 'description', 'location']) &&
+             data.status in ['pending', 'confirmed', 'completed', 'cancelled', 'denied'] &&
+             data.timestamp is number &&
+             data.customerId is string &&
+             data.workerId is string &&
+             data.city is string &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 2000 &&
+             data.location is string;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['id', 'bookingId', 'senderId', 'text', 'timestamp', 'customerId', 'workerId', 'customerEmail', 'workerEmail']) &&
+             data.senderId == request.auth.uid &&
+             data.bookingId is string &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 2000 &&
+             data.timestamp is number &&
+             data.customerId is string &&
+             data.workerId is string;
+    }
+
+    function isValidQuickRequest(data) {
+      return data.keys().hasAll(['customerId', 'customerName', 'city', 'category', 'description', 'scheduledTime', 'location', 'photos', 'status', 'timestamp']) &&
+             data.status in ['open', 'accepted', 'cancelled', 'closed', 'denied', 'completed'] &&
+             data.city is string &&
+             data.category is string &&
+             data.customerId is string &&
+             data.description is string && data.description.size() > 0 &&
+             data.timestamp is number;
+    }
+
+    function isValidAIInteraction(data) {
+      return data.keys().hasAll(['userId', 'userMessage', 'aiResponse', 'timestamp']) &&
+             data.userId == request.auth.uid &&
+             data.userMessage is string && data.userMessage.size() > 0 && data.userMessage.size() < 10000 &&
+             data.aiResponse is string && data.aiResponse.size() > 0 && data.aiResponse.size() < 10000 &&
+             isServerTimestamp(data.timestamp);
+    }
+
+    function isValidReport(data) {
+      return data.keys().hasAll(['id', 'bookingId', 'reporterId', 'reportedId', 'reason', 'details', 'timestamp', 'status']) &&
+             data.id is string && isValidId(data.bookingId) &&
+             data.reporterId == request.auth.uid &&
+             data.reportedId is string &&
+             data.reason is string && data.reason.size() > 0 &&
+             data.details is string &&
+             data.status in ['pending', 'resolved', 'dismissed'] &&
+             data.timestamp is number;
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    match /quickRequests/{reqId} {
+      allow list: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'worker' &&
+         resource.data.city == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('city', '')) ||
+        isAdminList()
+      );
+      allow get: if isSignedIn();
+      allow create: if isSignedIn() && isValidQuickRequest(incoming()) && incoming().customerId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (existing().get('customerId', '') == request.auth.uid && incoming().status in ['cancelled', 'closed', 'denied', 'completed']) ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'worker' && 
+          (
+            (existing().get('status', '') == 'open' && incoming().status == 'accepted' && incoming().get('acceptedBy', '') == request.auth.uid) ||
+            (existing().get('status', '') == 'accepted' && 
+             (
+               existing().get('acceptedBy', '') == request.auth.uid || 
+               (exists(/databases/$(database)/documents/bookings/$('quick_' + reqId)) && get(/databases/$(database)/documents/bookings/$('quick_' + reqId)).data.get('workerId', '') == request.auth.uid) ||
+               (exists(/databases/$(database)/documents/bookings/$('quick_' + reqId)) && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('workerId', 'none') == get(/databases/$(database)/documents/bookings/$('quick_' + reqId)).data.get('workerId', ''))
+             ) && 
+             incoming().status in ['denied', 'completed'])
+          )
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (isAdmin() || (isValidUser(incoming()) && incoming().uid == request.auth.uid));
+      allow update: if isSignedIn() && isUserUpdateAllowed(uid);
+      allow delete: if isAdmin() || request.auth.uid == uid;
+    }
+
+    match /users/{uid}/ai_interactions/{interactionId} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid) && isValidAIInteraction(incoming());
+      allow update: if false;
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
+    function isWorkerOwner(uid) {
+      return isOwner(uid) || (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('workerId', '') == uid
+      );
+    }
+
+    match /workers/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() || (isWorkerOwner(uid) && isValidWorker(incoming()));
+      allow update: if isAdmin() || 
+                    (isWorkerOwner(uid) && existing() != null && (
+                      incoming().diff(existing()).affectedKeys().hasOnly(['isAvailable', 'photoURL', 'location', 'workingHours', 'hasTransport', 'profession', 'specialties', 'city', 'phone', 'name', 'rating']) ||
+                      isValidWorker(incoming())
+                    )) ||
+                    (isSignedIn() && existing() != null && incoming().diff(existing()).affectedKeys().hasOnly(['rating']));
+      allow delete: if isAdmin() || isWorkerOwner(uid);
+    }
+
+    match /deletedAccounts/{phone} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || (isSignedIn() && (
+        resource.data.uid == request.auth.uid ||
+        (getEmail() != null && getEmail() == phone + '@khdmat.app') ||
+        (request.auth.token.get('phone_number', '') != '' && 
+         request.auth.token.phone_number.replace('[^0-9]', '').replace('^964', '').replace('^0', '') == 
+         phone.replace('[^0-9]', '').replace('^964', '').replace('^0', ''))
+      ));
+    }
+
+    match /bookings/{bookingId} {
+      allow list: if isSignedIn() && (
+        resource.data.get('customerId', '') == request.auth.uid || 
+        resource.data.get('workerId', '') == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('workerId', 'none') == resource.data.get('workerId', '')) ||
+        (getEmail() != null && resource.data.get('workerEmail', '') == getEmail()) ||
+        (getEmail() != null && resource.data.get('customerEmail', '') == getEmail()) ||
+        isAdminList()
+      );
+      allow get: if isSignedIn() && (
+        resource.data.get('customerId', '') == request.auth.uid || 
+        resource.data.get('workerId', '') == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('workerId', 'none') == resource.data.get('workerId', '')) ||
+        (getEmail() != null && resource.data.get('workerEmail', '') == getEmail()) ||
+        (getEmail() != null && resource.data.get('customerEmail', '') == getEmail()) ||
+        isAdmin()
+      );
+      allow create: if isSignedIn() && isValidBooking(incoming()) && (
+        incoming().customerId == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'worker')
+      );
+      allow update: if isSignedIn() && (
+        existing().get('customerId', '') == request.auth.uid || 
+        existing().get('workerId', '') == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('workerId', 'none') == existing().get('workerId', '')) ||
+        (getEmail() != null && existing().get('workerEmail', '') == getEmail()) ||
+        (getEmail() != null && existing().get('customerEmail', '') == getEmail()) ||
+        isAdmin()
+      ) && (
+        // Allow partial status / scheduling / rating updates
+        (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'scheduledTime', 'rating', 'review', 'updatedAt', 'lastMessage', 'lastMessageSenderId', 'lastMessageTimestamp'])) ||
+        isValidBooking(incoming())
+      );
+      allow delete: if isSignedIn() && (
+        isAdmin() ||
+        (
+          (
+            existing().get('customerId', '') == request.auth.uid || 
+            existing().get('workerId', '') == request.auth.uid ||
+            (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('workerId', 'none') == existing().get('workerId', '')) ||
+            (getEmail() != null && existing().get('workerEmail', '') == getEmail()) ||
+            (getEmail() != null && existing().get('customerEmail', '') == getEmail())
+          ) &&
+          (existing().get('status', '') in ['completed', 'denied', 'cancelled'])
+        )
+      );
+    }
+
+    match /messages/{messageId} {
+      allow list: if isSignedIn() && (
+        resource.data.get('senderId', '') == request.auth.uid ||
+        resource.data.get('customerId', '') == request.auth.uid ||
+        resource.data.get('workerId', '') == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('workerId', 'none') == resource.data.get('workerId', '')) ||
+        (getEmail() != null && resource.data.get('customerEmail', '') == getEmail()) ||
+        (getEmail() != null && resource.data.get('workerEmail', '') == getEmail()) ||
+        isAdminList()
+      );
+      allow get: if isSignedIn() && (
+        resource.data.get('senderId', '') == request.auth.uid ||
+        resource.data.get('customerId', '') == request.auth.uid ||
+        resource.data.get('workerId', '') == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('workerId', 'none') == resource.data.get('workerId', '')) ||
+        (getEmail() != null && resource.data.get('customerEmail', '') == getEmail()) ||
+        (getEmail() != null && resource.data.get('workerEmail', '') == getEmail()) ||
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/bookings/$(resource.data.get('bookingId', 'none'))) && (
+          get(/databases/$(database)/documents/bookings/$(resource.data.get('bookingId', 'none'))).data.get('customerId', '') == request.auth.uid ||
+          get(/databases/$(database)/documents/bookings/$(resource.data.get('bookingId', 'none'))).data.get('workerId', '') == request.auth.uid ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('workerId', 'none') == get(/databases/$(database)/documents/bookings/$(resource.data.get('bookingId', 'none'))).data.get('workerId', ''))
+        ))
+      );
+      allow create: if isSignedIn() && isValidMessage(incoming());
+      allow update: if isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      allow delete: if isSignedIn() && (
+        isAdmin() ||
+        existing().get('senderId', '') == request.auth.uid ||
+        existing().get('customerId', '') == request.auth.uid ||
+        existing().get('workerId', '') == request.auth.uid ||
+        (getEmail() != null && (existing().get('customerEmail', '') == getEmail() || existing().get('workerEmail', '') == getEmail())) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('workerId', 'none') == existing().get('workerId', ''))
+      );
+    }
+
+    match /workerApplications/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isSignedIn() && isOwner(uid);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /ads/{adId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+    
+    match /reports/{reportId} {
+      allow list: if isAdminList() || (isSignedIn() && resource.data.reporterId == request.auth.uid);
+      allow get: if isAdmin() || (isSignedIn() && resource.data.reporterId == request.auth.uid);
+      allow create: if isVerified() && isValidReport(incoming());
+      allow update: if isAdmin() || (
+        isVerified() &&
+        existing().reporterId == request.auth.uid &&
+        isValidReport(incoming()) &&
+        incoming().reporterId == existing().reporterId &&
+        incoming().bookingId == existing().bookingId
+      );
+      allow delete: if isAdmin();
+    }
+  }
+}

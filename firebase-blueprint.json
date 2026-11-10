@@ -1,0 +1,262 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user profile information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "city": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "worker", "admin"] },
+        "createdAt": { "type": "number" },
+        "fcmToken": { "type": "string" }
+      },
+      "required": ["uid", "name", "email", "phone", "city", "role", "createdAt"]
+    },
+    "WorkerProfile": {
+      "title": "Worker Profile",
+      "description": "Stores worker-specific information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "profession": { "type": "string" },
+        "workingHours": { "type": "string" },
+        "hasTransport": { "type": "boolean" },
+        "rating": { "type": "number" },
+        "phone": { "type": "string" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
+        "photos": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 3
+        }
+      },
+      "required": ["uid", "profession", "workingHours", "hasTransport", "rating", "phone", "location"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Stores booking information.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerEmail": { "type": "string", "format": "email" },
+        "workerId": { "type": "string" },
+        "workerEmail": { "type": "string", "format": "email" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "completed", "cancelled", "denied"] },
+        "timestamp": { "type": "number" },
+        "category": { "type": "string" },
+        "city": { "type": "string" },
+        "description": { "type": "string" },
+        "location": { "type": "string" },
+        "scheduledTime": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "lastMessageSenderId": { "type": "string" },
+        "lastMessageTimestamp": { "type": "number" },
+        "problemPhotos": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 4
+        }
+      },
+      "required": ["id", "customerId", "workerId", "status", "timestamp", "category", "city", "description", "location"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Stores chat messages.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bookingId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "customerEmail": { "type": "string", "format": "email" },
+        "workerEmail": { "type": "string", "format": "email" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "bookingId", "senderId", "text", "timestamp"]
+    },
+    "WorkerApplication": {
+      "title": "Worker Application",
+      "description": "Stores applications to become a worker.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "nationalId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["uid", "phone", "email", "nationalId", "status", "timestamp"]
+    },
+    "AppSettings": {
+      "title": "App Settings",
+      "description": "Stores global application settings.",
+      "type": "object",
+      "properties": {
+        "supportEmail": { "type": "string", "format": "email" },
+        "supportPhone": { "type": "string" },
+        "whatsappNumber": { "type": "string" }
+      },
+      "required": ["supportEmail", "supportPhone", "whatsappNumber"]
+    },
+    "Ad": {
+      "title": "Ad",
+      "description": "Promotional banners for the home page.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "imageURL": { "type": "string" },
+        "link": { "type": "string" },
+        "active": { "type": "boolean" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "title", "description", "imageURL", "active", "order", "createdAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Service categories available in the app.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "icon": { "type": "string" },
+        "nameEn": { "type": "string" },
+        "nameAr": { "type": "string" },
+        "nameKu": { "type": "string" },
+        "order": { "type": "number" },
+        "active": { "type": "boolean" },
+        "keywords": { "type": "string" }
+      },
+      "required": ["id", "icon", "nameEn", "nameAr", "nameKu", "order", "active"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "User or worker reports for bookings.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bookingId": { "type": "string" },
+        "reporterId": { "type": "string" },
+        "reportedId": { "type": "string" },
+        "reason": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "resolved", "dismissed"] },
+        "language": { "type": "string" }
+      },
+      "required": ["id", "bookingId", "reporterId", "reportedId", "reason", "details", "timestamp", "status"]
+    },
+    "QuickRequest": {
+      "title": "Quick Request",
+      "description": "Quick service requests without specific worker selection.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "city": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "scheduledTime": { "type": "string" },
+        "location": { "type": "string" },
+        "photos": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["open", "accepted", "cancelled", "completed"] },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["customerId", "customerName", "city", "category", "description", "status", "timestamp"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "User reviews for workers.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bookingId": { "type": "string" },
+        "customerId": { "type": "string" },
+        "workerId": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["bookingId", "customerId", "workerId", "rating", "timestamp"]
+    },
+    "AIInteraction": {
+      "title": "AI Interaction",
+      "description": "Stores interactions between the user and the AI assistant.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userMessage": { "type": "string" },
+        "aiResponse": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "intent": { "type": "string" },
+        "metadata": { "type": "object" }
+      },
+      "required": ["userId", "userMessage", "aiResponse", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "User profile data."
+    },
+    "/users/{uid}/ai_interactions/{interactionId}": {
+      "schema": "AIInteraction",
+      "description": "AI chat history for the user."
+    },
+    "/workers/{uid}": {
+      "schema": "WorkerProfile",
+      "description": "Worker profile data."
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Booking data."
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat message data."
+    },
+    "/workerApplications/{uid}": {
+      "schema": "WorkerApplication",
+      "description": "Worker application data."
+    },
+    "/settings/{settingId}": {
+      "schema": "AppSettings",
+      "description": "Global app settings."
+    },
+    "/ads/{adId}": {
+      "schema": "Ad",
+      "description": "Promotional banners."
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Service categories."
+    },
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "User reports."
+    },
+    "/quickRequests/{reqId}": {
+      "schema": "QuickRequest",
+      "description": "Quick service requests."
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Worker reviews."
+    }
+  }
+}

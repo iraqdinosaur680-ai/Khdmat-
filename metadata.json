@@ -1,0 +1,9 @@
+{
+  "name": "Khdmat (خدمات)",
+  "description": "تطبيق خدمات لربط العملاء بالعمال المهرة والمهنيين في العراق بكل سهولة وأمان.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
