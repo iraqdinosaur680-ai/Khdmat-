@@ -19,6 +19,13 @@ bin/
 .env*.local
 !.env.example
 
+# Firebase & Google Services configuration files
+firebase-applet-config.json
+!firebase-applet-config.example.json
+google-services.json
+*/google-services.json
+firebase_applet_config.xml
+
 # Service account / admin keys
 *service-account*.json
 *serviceAccount*.json
